@@ -58,3 +58,4 @@ workflow {
      . view()
 
 aligned = ALIGN(rawfastq)
+}
