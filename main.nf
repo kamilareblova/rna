@@ -15,8 +15,8 @@ process ALIGN {
 
         script:
         """
-
-       STAR --runMode alignReads --genomeDir ${params.STAR} \
+       source activate rna
+       STAR --runMode alignReads --genomeDir ${params.STAR_INDEX} \
             --readFilesIn <(gunzip -c $fwd) <(gunzip -c $rev) \
             --sjdbOverhang 100 --sjdbGTFfile ${params.GTF} \
             --outFileNamePrefix ${name}.bam
