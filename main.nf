@@ -20,15 +20,12 @@ process ALIGN {
        source activate star
        STAR --runMode alignReads --genomeDir ${params.STAR_INDEX} \
             --readFilesIn $fwd $rev --readFilesCommand zcat \
-            --sjdbOverhang 100 --sjdbGTFfile ${params.GTF} \
+            --sjdbOverhang 100  \
             --outFileNamePrefix ${name}. \
             --outFilterMultimapNmax 20 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 \
-            --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 1.0 --outFilterMismatchNoverLmax 0.05 \
+            --outFilterMismatchNmax 10 --outFilterMismatchNoverReadLmax 1.0 --outFilterMismatchNoverLmax 0.3 \
             --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 \
-            --outFilterMatchNmin 0 --outFilterScoreMinOverLread 0.66 --outFilterMatchNminOverLread 0.66 \
-            --chimSegmentMin 12 --chimJunctionOverhangMin 12 \
-            --chimOutType Junctions WithinBAM SoftClip --chimScoreMin 1 \
-            --chimScoreDropMax 30 --chimScoreSeparation 10 --chimSegmentReadGapMax 3 \
+            --outFilterMatchNmin 0.66 --outFilterScoreMinOverLread 0.66 --outFilterMatchNminOverLread 0.66 \
             --outSAMattrRGline ID:${name} PL:Illumina PU:${name} SM:${name} \
             --outSAMunmapped Within --outFilterType BySJout --outSAMattributes All \
             --outWigStrand Stranded --quantMode GeneCounts TranscriptomeSAM --sjdbScore 1 --twopassMode Basic \
