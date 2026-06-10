@@ -23,19 +23,56 @@ process ALIGN {
             --sjdbOverhang 100  \
             --outFileNamePrefix ${name}. \
             --outFilterMultimapNmax 20 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 \
-            --outFilterMismatchNmax 10 --outFilterMismatchNoverReadLmax 1.0 --outFilterMismatchNoverLmax 0.3 \
+            --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 1.0 --outFilterMismatchNoverLmax 0.3 \
             --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 \
             --outFilterMatchNmin 0.66 --outFilterScoreMinOverLread 0.66 --outFilterMatchNminOverLread 0.66 \
             --outSAMattrRGline ID:${name} PL:Illumina PU:${name} SM:${name} \
             --outSAMunmapped Within --outFilterType BySJout --outSAMattributes All \
             --outWigStrand Stranded --quantMode GeneCounts TranscriptomeSAM --sjdbScore 1 --twopassMode Basic \
             --outMultimapperOrder Random \
-            --outSAMtype BAM SortedByCoordinate
+            --outSAMtype BAM SortedByCoordinate \
+            --chimSegmentMin 10 \
+            --chimOutType Junctions WithinBAM HardClip \
+            --chimJunctionOverhangMin 10 \
+            --chimScoreDropMax 30 \
+            --chimScoreJunctionNonGTAG 0 \
+            --chimScoreSeparation 1 \
+            --chimSegmentReadGapMax 3 \
+            --chimMultimapNmax 50
 
      samtools index ${name}.Aligned.sortedByCoord.out.bam
 
          """
 }
+
+process STARfusion {
+
+        tag "mapping on $name using $task.cpus CPUs and $task.memory memory"
+        publishDir "${params.outDirectory}/${sample.run}/starfusion/", mode:'copy'
+
+        label "l_cpu"
+        label "l_mem"
+
+        shell:
+       '/bin/bash'
+
+        input:
+        tuple val(name), val(sample), path(fwd), path(rev)
+
+        output:
+        tuple val(name), val(sample), path("star-fusion-${name}")
+
+        script:
+        """
+        echo STARFUSIOn $name
+
+        export TMPDIR=\${PWD}/tmp
+        mkdir -p \$TMPDIR
+
+        source activate star-fusion
+        STAR-Fusion --genome_lib_dir ${params.GRCh38_gencode_v37_CTAT_lib} --left_fq $fwd --right_fq $rev --output_dir \${PWD}/star-fusion-${name}
+        """
+} 
 
 workflow {
         rawfastq = Channel.fromPath("${params.homeDir}/samplesheet.csv")
@@ -62,4 +99,5 @@ workflow {
      . view()
 
 aligned = ALIGN(rawfastq)
+starfusion = STARfusion(rawfastq)
 }
