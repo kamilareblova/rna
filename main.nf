@@ -48,7 +48,7 @@ process ALIGN {
 process ARRIBAfusion {
 
         tag "mapping on $name using $task.cpus CPUs and $task.memory memory"
-        publishDir "${params.outDirectory}/${sample.run}/starfusion/", mode:'copy'
+        publishDir "${params.outDirectory}/${sample.run}/arriba/", mode:'copy'
 
         label "m_cpu"
         label "m_mem"
