@@ -1,0 +1,10 @@
+name: star
+channels:
+  - defaults
+  - bioconda
+  - conda-forge
+  - https://repo.anaconda.com/pkgs/main
+  - https://repo.anaconda.com/pkgs/r
+dependencies:
+  - star=2.7.10a=h9ee0642_0
+  - samtools

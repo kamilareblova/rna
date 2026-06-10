@@ -45,6 +45,32 @@ process ALIGN {
          """
 }
 
+process ARRIBAfusion {
+
+        tag "mapping on $name using $task.cpus CPUs and $task.memory memory"
+        publishDir "${params.outDirectory}/${sample.run}/starfusion/", mode:'copy'
+
+        label "m_cpu"
+        label "m_mem"
+
+        shell:
+       '/bin/bash'
+
+        input:
+        tuple val(name), val(sample), path("${name}.Aligned.sortedByCoord.out.bam"), path("${name}.Aligned.sortedByCoord.out.bam.bai"), path("${name}.Chimeric.out.junction")
+
+        output:
+        tuple val(name), val(sample), path("${name}.fusion.tsv"), path("${name}.fusions.discarded.tsv")
+
+        script:
+        """
+        source activate arriba
+        arriba -x ${name}.Aligned.sortedByCoord.out.bam -a ${params.ref}.fa -g ${params.GTF} -b ${params.blacklist} -k ${params.known_fusions} -p ${params.protein_domains} -o ${name}.fusion.tsv -O ${name}.fusions.discarded.tsv
+
+        """
+}
+
+
 process STARfusion {
 
         tag "mapping on $name using $task.cpus CPUs and $task.memory memory"
@@ -100,4 +126,5 @@ workflow {
 
 aligned = ALIGN(rawfastq)
 starfusion = STARfusion(rawfastq)
+arriba = ARRIBAfusion(aligned)
 }
