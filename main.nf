@@ -100,6 +100,36 @@ process STARfusion {
         """
 } 
 
+
+process Featurecounts {
+
+        tag "mapping on $name using $task.cpus CPUs and $task.memory memory"
+        publishDir "${params.outDirectory}/${sample.run}/Featurecounts/", mode:'copy'
+
+        label "m_cpu"
+        label "m_mem"
+
+        shell:
+       '/bin/bash'
+
+        input:
+        tuple val(name), val(sample), path("${name}.Aligned.sortedByCoord.out.bam"), path("${name}.Aligned.sortedByCoord.out.bam.bai"), path("${name}.Chimeric.out.junction")
+
+        output:
+        tuple val(name), val(sample), path("featurecounts-${name}")
+
+        script:
+        """
+        export TMPDIR=\${PWD}/tmp
+        mkdir -p \$TMPDIR
+ 
+        source activate rna
+        featureCounts -M -t exon -g gene_id -O -s 0 -T 12 -Q 0 -d 1 -D 1000 -a ${params.GTF} -o \${PWD}/featurecounts-${name} ${name}.Aligned.sortedByCoord.out.bam # -f parametr pak da vysledek na jednotlive exony, pro jednotlive  transkripty pak toto -g transcript_id, pripadne -s 0 je unstranded, ignoruje se smer a pocitaji se vsechna cteni
+
+        """
+}
+
+
 workflow {
         rawfastq = Channel.fromPath("${params.homeDir}/samplesheet.csv")
     .splitCsv(header: true)
@@ -127,4 +157,5 @@ workflow {
 aligned = ALIGN(rawfastq)
 starfusion = STARfusion(rawfastq)
 arriba = ARRIBAfusion(aligned)
+exprese = Featurecounts(aligned)
 }
