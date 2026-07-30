@@ -129,6 +129,38 @@ process Featurecounts {
         """
 }
 
+process MergeFeatureCounts {
+        
+        publishDir "${params.outDirectory}/${run}/Featurecounts/", mode:'copy'
+  
+        input:
+        tuple val(run), path(featurecounts_files)
+
+        output:
+        tuple val(run), path("featurecounts-ALL.txt"), path("featurecounts-ALL-genes.txt")
+
+        script:
+        """
+        source activate arriba
+        first=\$(echo ${featurecounts_files} | awk '{print \$1}')
+
+        tail -n +2 "\$first" | cut -f1 > genes.txt
+
+        cp genes.txt featurecounts-ALL.txt
+
+        for f in ${featurecounts_files}; do
+        tail -n +2 "\$f" | cut -f7 > counts.tmp
+        paste featurecounts-ALL.txt counts.tmp > merged.tmp
+        mv merged.tmp featurecounts-ALL.txt
+        done 
+
+        cp ${params.GTF_engs_gene} Homo_sapiens.GRCh38.95-gene-engs.txt
+
+        Rscript ${projectDir}/scripts/engs-to-gene.R
+
+        """
+}
+
 
 workflow {
         rawfastq = Channel.fromPath("${params.homeDir}/samplesheet.csv")
@@ -157,5 +189,11 @@ workflow {
 aligned = ALIGN(rawfastq)
 starfusion = STARfusion(rawfastq)
 arriba = ARRIBAfusion(aligned)
+
 exprese = Featurecounts(aligned)
+exprese_collected = exprese
+    .map { name, sample, f -> tuple(sample.run, file(f)) }
+    .groupTuple() // groups by sample.run automatically!
+spojeni = MergeFeatureCounts(exprese_collected)
+
 }
