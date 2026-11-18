@@ -161,6 +161,84 @@ process MergeFeatureCounts {
         """
 }
 
+process COVERAGE1 {
+        tag "COVERAGE1 on $name"
+        publishDir "${params.outDirectory}/${sample.run}/coverage/", mode:'copy'
+        container "staphb/samtools:1.20"
+
+        label "l_cpu"
+        label "l_mem"
+
+
+        input:
+         tuple val(name), val(sample), path("${name}.Aligned.sortedByCoord.out.bam"), path("${name}.Aligned.sortedByCoord.out.bam.bai"), path("${name}.Chimeric.out.junction")
+
+        output:
+        tuple val(name), val(sample), path("${name}.coveragefin.txt")
+
+        script:
+        """
+        echo COVERAGE1 $name
+        samtools bedcov ${params.varbed1} ${name}.Aligned.sortedByCoord.out.bam -d 20 > ${name}.COV
+        awk '{print \$5/(\$3-\$2)}'  ${name}.COV >  ${name}.COV-mean
+        awk '{print (\$6/(\$3-\$2))*100"%"}' ${name}.COV > ${name}-procento-nad-20
+        paste ${name}.COV-mean ${name}-procento-nad-20 > vysledek
+        echo "chr" "start" "stop" "name" ${name}.COV-mean ${name}-procento-nad-20 > hlavicka
+        sed -i 's/ /\t/'g hlavicka
+        paste ${params.varbed1} vysledek > coverage
+        cat hlavicka coverage > ${name}.coveragefin.txt
+        sed -i -e "s/\r//g" ${name}.coveragefin.txt
+        """
+}
+
+process COMBINECOVERAGEMEAN {
+    tag "COMBINECOVERAGEMEAN"
+
+    input:
+    tuple val(run_name), path(coverage_files)
+
+    publishDir { "${params.outDirectory}/${run_name}/coverage/" }, mode: 'copy'
+
+    output:
+    tuple val(run_name), path("coveragemeanALL")
+
+
+    script:
+    """
+    i=0
+    tmpfiles=""
+    for file in ${coverage_files}; do
+        awk '{print \$5}' "\$file" > column_\$i.txt
+        tmpfiles="\$tmpfiles column_\$i.txt"
+        i=\$((i+1))
+    done
+    echo "chr" "start" "stop" "name" > hlavicka
+    sed -i 's/ /\t/'g hlavicka
+    cat hlavicka ${params.varbed1} > bedshlavickou
+    paste  bedshlavickou \$tmpfiles > coveragemeanALL
+    """
+}
+
+
+process GATK {
+         container 'broadinstitute/gatk:4.6.0.0'
+         tag "variantcalling on $name using $task.cpus CPUs and $task.memory memory"
+         publishDir "${params.outDirectory}/${sample.run}/varianty/", mode:'copy'
+
+
+         input:
+         tuple val(name), val(sample), path("${name}.Aligned.sortedByCoord.out.bam"), path("${name}.Aligned.sortedByCoord.out.bam.bai"), path("${name}.Chimeric.out.junction")
+
+         output:
+         tuple val(name), val(sample), path("${name}.vcf")
+
+    script:
+    """
+    gatk --java-options "-Xmx4g" SplitNCigarReads -R ${params.ref}.fa -I ${name}.Aligned.sortedByCoord.out.bam -O ${name}.split.bam
+    gatk --java-options "-Xmx4g" HaplotypeCaller -R ${params.ref}.fa -I ${name}.split.bam -L ${params.varbed1} --dont-use-soft-clipped-bases true -A StrandBiasBySample -minimum-mapping-quality 0 --mapping-quality-threshold-for-genotyping 0 --enable-dynamic-read-disqualification-for-genotyping true --flow-filter-alleles-qual-threshold 0 -O ${name}.vcf
+
+    """
+}
 
 workflow {
         rawfastq = Channel.fromPath("${params.homeDir}/samplesheet.csv")
@@ -195,5 +273,14 @@ exprese_collected = exprese
     .map { name, sample, f -> tuple(sample.run, file(f)) }
     .groupTuple() // groups by sample.run automatically!
 spojeni = MergeFeatureCounts(exprese_collected)
+
+coverage_results = COVERAGE1(aligned)
+
+coverage_files_collected = coverage_results
+    .map { name, sample, f -> tuple(sample.run, file(f)) }
+    .groupTuple() // groups by sample.run automatically!
+finalcoverage = COMBINECOVERAGEMEAN(coverage_files_collected)
+
+variantcalling = GATK(aligned)
 
 }
